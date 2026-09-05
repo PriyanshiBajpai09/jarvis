@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Jarvis MK-85",
+    "slug": "jarvis-mk85",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+
+    "android": {
+      "package": "com.priyanshi.jarvismk85",
+      "adaptiveIcon": {
+        "backgroundColor": "#02040A"
+      }
+    }
+
+  }
+}

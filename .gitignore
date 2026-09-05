@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# environment
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Android
+android/app/build/
+
+# iOS
+ios/build/
+
+# VS Code
+.vscode/
+
+desktop.ini
