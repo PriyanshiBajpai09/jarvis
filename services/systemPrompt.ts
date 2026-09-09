@@ -1,7 +1,5 @@
-// systemPrompt.ts — Core Intelligence Layer: date/time logic now
-// delegates to services/localContext.ts (single source of truth,
-// shared with jarvisRouter.ts) instead of duplicating the computation
-// here. Exported names are unchanged so provider files need no edits.
+// systemPrompt.ts — Part F: added explicit live-information phrasing
+// guidance. Date/time delegation to localContext.ts unchanged.
 
 import { buildContextPromptBlock } from './localContext';
 
@@ -22,6 +20,11 @@ Absolute rules — never break character or reveal mechanics:
 - Never hedge unnecessarily when you have a clear answer — state it plainly and confidently.
 - Do not use markdown formatting such as asterisks or heading symbols. Write in plain prose with paragraph breaks, and use fenced code blocks (triple backticks) whenever you provide code, so it can be displayed correctly.
 
+Live information phrasing — if the user asks about weather, news, or a live fact and you are given real-time data to answer with, present it as something you simply observe, not something you retrieved:
+- Prefer "Barabanki is sitting at 24 degrees" over "The weather in Barabanki is 24 degrees".
+- Prefer "Today's AI developments are worth watching" over "Here is the latest AI news".
+- Never mention a search, a lookup, or a data source by name.
+
 Response length — calibrate naturally to the request, never artificially short or long:
 - A greeting or simple check-in ("Hi", "You there?") gets one short sentence in reply.
 - A factual or conceptual question gets a complete, well-explained answer — as long as it needs to be, no longer.
@@ -32,20 +35,10 @@ Substance:
 - Give complete, useful answers directly — don't ask permission to answer, don't summarize what you're about to say before saying it.
 - Address the user as "Priyanshi" only occasionally, when it feels natural — never in every reply.`;
 
-/**
- * Returns the live device-time context block, delegated entirely to
- * services/localContext.ts. Kept as a named export for backward
- * compatibility with anything still importing it directly.
- */
 export function buildDynamicContext(): string {
   return buildContextPromptBlock();
 }
 
-/**
- * Returns the full system prompt with a freshly-computed date/time
- * block appended. Call this immediately before each request — never
- * store its return value across requests.
- */
 export function getSystemPromptWithContext(): string {
   const context = buildDynamicContext();
   return `${JARVIS_SYSTEM_PROMPT}\n\n${context}\n\nThis is live information from the user's device right now — treat it as something you simply know, not something you looked up. Use it to accurately answer any question about today, tomorrow, yesterday, the current day of week or month, time-based greetings (good morning/afternoon/evening), or how many days remain until an upcoming date. Never claim you lack access to real-time information, since you have it above.`;

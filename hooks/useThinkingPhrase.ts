@@ -1,56 +1,29 @@
-import { useEffect, useState } from "react";
+// useThinkingPhrase.ts — Part G: sequential progression instead of
+// endless randomization. Steps through Processing -> Analyzing ->
+// Routing -> Response Ready once, then holds on the final phrase until
+// `active` becomes false (the reply has arrived and streaming begins).
 
-const THINKING_PHRASES = [
-  "Processing...",
-  "Analyzing...",
-  "Accessing knowledge base...",
-  "Computing...",
-  "Running diagnostics...",
-];
+import { useEffect, useState } from 'react';
 
-function pickPhrase(exclude?: string): string {
-  let next =
-    THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)];
-
-  let attempts = 0;
-  while (next === exclude && attempts < 5) {
-    next =
-      THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)];
-    attempts++;
-  }
-
-  return next;
-}
+const PROGRESSION = ['Processing...', 'Analyzing...', 'Routing...', 'Response Ready'];
+const STEP_INTERVAL_MS = 650;
 
 export function useThinkingPhrase(active: boolean): string {
-  const [phrase, setPhrase] = useState("Processing...");
+  const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    let frame: number | undefined;
-
     if (!active) {
-      frame = requestAnimationFrame(() => {
-        setPhrase("Processing...");
-      });
-
-      return () => {
-        if (frame !== undefined) cancelAnimationFrame(frame);
-      };
+      setStepIndex(0);
+      return undefined;
     }
 
-    frame = requestAnimationFrame(() => {
-      setPhrase("Processing...");
-    });
-
+    setStepIndex(0);
     const interval = setInterval(() => {
-      setPhrase((prev) => pickPhrase(prev));
-    }, 750);
+      setStepIndex((prev) => Math.min(prev + 1, PROGRESSION.length - 1));
+    }, STEP_INTERVAL_MS);
 
-    return () => {
-      if (frame !== undefined) cancelAnimationFrame(frame);
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [active]);
 
-  return phrase;
+  return PROGRESSION[stepIndex];
 }

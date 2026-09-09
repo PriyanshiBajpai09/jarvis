@@ -1,0 +1,83 @@
+// protocolEngine.ts — Part B: named routines (Morning/Study/Night
+// Protocol). Detection must run BEFORE intent classification and
+// Groq, per spec — jarvisRouter checks detectProtocol() first thing.
+
+import { getLocalContext } from './localContext';
+import { getWeatherAnswer, getNewsAnswer } from './liveInfoService';
+import { getLatestFact } from '../storage/sessionMemory';
+
+export type ProtocolType = 'morning' | 'study' | 'night';
+
+const MORNING_TRIGGERS = [/morning protocol/i, /^start my day\b/i];
+const STUDY_TRIGGERS = [/study mode/i, /study protocol/i, /^activate study/i];
+const NIGHT_TRIGGERS = [/^good night\b/i, /night protocol/i];
+
+export function detectProtocol(text: string): ProtocolType | null {
+  const clean = text.trim();
+  if (MORNING_TRIGGERS.some((p) => p.test(clean))) return 'morning';
+  if (STUDY_TRIGGERS.some((p) => p.test(clean))) return 'study';
+  if (NIGHT_TRIGGERS.some((p) => p.test(clean))) return 'night';
+  return null;
+}
+
+const MOTIVATIONAL_LINES = [
+  'Everything is calibrated. Let's make today count.',
+  'Systems green across the board. Ready when you are.',
+  'A clean slate, Priyanshi. Use it well.',
+];
+
+const STUDY_FOCUS_LINES = [
+  'One task at a time gets the best results. Shall we begin?',
+  'Focus mode is the objective. I'll keep distractions to a minimum on my end.',
+  'Clear mind, clear priorities. Let's get into it.',
+];
+
+const NIGHT_LINES = [
+  'Rest well. I'll keep watch until morning.',
+  'Powering down the noise, not the readiness. Sleep well.',
+  'Everything that needs handling can wait until you're rested.',
+];
+
+function pick(list: string[]): string {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+async function buildMorningReply(): Promise<string> {
+  const ctx = getLocalContext();
+  const lines: string[] = [`Good morning, Priyanshi. It's ${ctx.time} on ${ctx.day}, ${ctx.date}.`];
+
+  const lastCity = await getLatestFact('lastCity');
+  if (lastCity) {
+    const weather = await getWeatherAnswer(lastCity);
+    if (weather) lines.push(weather);
+  }
+
+  const headline = await getNewsAnswer();
+  if (headline) lines.push(headline);
+
+  lines.push(pick(MOTIVATIONAL_LINES));
+  return lines.join(' ');
+}
+
+function buildStudyReply(): string {
+  const ctx = getLocalContext();
+  return `Study mode engaged. It's ${ctx.time}, ${ctx.day} ${ctx.date}. ${pick(STUDY_FOCUS_LINES)}`;
+}
+
+function buildNightReply(): string {
+  const ctx = getLocalContext();
+  return `It's ${ctx.time}. ${pick(NIGHT_LINES)} I'll have things in order for you tomorrow.`;
+}
+
+export async function runProtocol(type: ProtocolType): Promise<string> {
+  switch (type) {
+    case 'morning':
+      return buildMorningReply();
+    case 'study':
+      return buildStudyReply();
+    case 'night':
+      return buildNightReply();
+    default:
+      return "Protocol not recognized.";
+  }
+}
