@@ -154,7 +154,7 @@ export async function startListening(): Promise<VoiceActionResult> {
         interimResults: false,
         continuous: false,
         maxAlternatives: 1,
-      } as unknown as Parameters<typeof ExpoSpeechRecognitionModule.start>[0]
+      }
     );
     return { success: true };
   } catch {
@@ -179,7 +179,7 @@ export function speak(text: string, onDone?: () => void): void {
   if (!clean) return;
 
   if (state === 'speaking') {
-    Speech.stop();
+    void Speech.stop();
   }
   setState('speaking');
 
@@ -200,6 +200,6 @@ export function speak(text: string, onDone?: () => void): void {
 }
 
 export function stopSpeaking(): void {
-  Speech.stop();
+  void Speech.stop();
   if (state === 'speaking') setState('idle');
 }

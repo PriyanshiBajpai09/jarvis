@@ -48,6 +48,9 @@ import {
   buildWordRevealSteps,
   parseMessageSegments,
 } from "../utils/textFormat";
+import { publishReplyReady } from "../services/replyBus";
+
+
 
 interface Message {
   id: string;
@@ -418,63 +421,78 @@ function ConversationPanel({ onInputFocus }: ConversationPanelProps) {
   );
 
   const sendText = useCallback(
-    async (rawText: string) => {
-      const clean = rawText.trim();
-      if (!clean || sendInFlightRef.current) return;
-      sendInFlightRef.current = true;
+  async (rawText: string) => {
+    const clean = rawText.trim();
+    if (!clean || sendInFlightRef.current) return;
+    sendInFlightRef.current = true;
 
-      cancelStreaming();
+    cancelStreaming();
 
-      const userMessage: Message = {
+    const userMessage: Message = {
+      id: createId(),
+      sender: "user",
+      text: clean,
+      time: timestamp(),
+    };
+
+    const withUser = [...messagesRef.current, userMessage];
+    messagesRef.current = withUser;
+    setMessages(withUser);
+    setDraft("");
+    setIsTyping(true);
+    atBottomRef.current = true;
+    scrollToEndIfAppropriate(true);
+
+    const historyForRequest = trimHistoryForRequest(
+      toChatHistory(withUser)
+    );
+
+    try {
+      const routed = await routeUserMessage(clean, historyForRequest);
+
+      const jarvisMessage: Message = {
         id: createId(),
-        sender: "user",
-        text: clean,
+        sender: "jarvis",
+        text: routed.replyText,
         time: timestamp(),
       };
-      const withUser = [...messagesRef.current, userMessage];
-      messagesRef.current = withUser;
-      setMessages(withUser);
-      setDraft("");
-      setIsTyping(true);
-      atBottomRef.current = true;
-      scrollToEndIfAppropriate(true);
 
-      const historyForRequest = trimHistoryForRequest(toChatHistory(withUser));
+      const withReply = [...messagesRef.current, jarvisMessage];
+      messagesRef.current = withReply;
+      setIsTyping(false);
+      setMessages(withReply);
 
-      try {
-        const routed = await routeUserMessage(clean, historyForRequest);
-        const jarvisMessage: Message = {
-          id: createId(),
-          sender: "jarvis",
-          text: routed.replyText,
-          time: timestamp(),
-        };
-        const withReply = [...messagesRef.current, jarvisMessage];
-        messagesRef.current = withReply;
-        setIsTyping(false);
-        setMessages(withReply);
-        beginStreaming(jarvisMessage.id, routed.replyText);
-      } catch (err) {
-        const message =
-          err instanceof AIServiceError ? err.message : "Signal disrupted.";
-        const errorMessage: Message = {
-          id: createId(),
-          sender: "jarvis",
-          text: message,
-          time: timestamp(),
-          isError: true,
-        };
-        const withError = [...messagesRef.current, errorMessage];
-        messagesRef.current = withError;
-        setIsTyping(false);
-        setMessages(withError);
-      } finally {
-        sendInFlightRef.current = false;
-        scrollToEndIfAppropriate(false);
+      beginStreaming(jarvisMessage.id, routed.replyText);
+
+      // Web-only side channel for browser speech.
+      if (Platform.OS === "web") {
+        publishReplyReady(routed.replyText);
       }
-    },
-    [beginStreaming, cancelStreaming, scrollToEndIfAppropriate],
-  );
+    } catch (err) {
+      const message =
+        err instanceof AIServiceError
+          ? err.message
+          : "Signal disrupted.";
+
+      const errorMessage: Message = {
+        id: createId(),
+        sender: "jarvis",
+        text: message,
+        time: timestamp(),
+        isError: true,
+      };
+
+      const withError = [...messagesRef.current, errorMessage];
+      messagesRef.current = withError;
+      setIsTyping(false);
+      setMessages(withError);
+    } finally {
+      sendInFlightRef.current = false;
+      scrollToEndIfAppropriate(false);
+    }
+  },
+  [beginStreaming, cancelStreaming, scrollToEndIfAppropriate]
+);
 
   function handleSend() {
     void sendText(draft);
@@ -502,55 +520,72 @@ function ConversationPanel({ onInputFocus }: ConversationPanelProps) {
   }, []);
 
   const handleRegenerate = useCallback(
-    async (messageId: string) => {
-      const index = messagesRef.current.findIndex((m) => m.id === messageId);
-      if (index === -1) return;
-      const target = messagesRef.current[index];
-      if (
-        target.sender !== "jarvis" ||
-        target.isError ||
-        sendInFlightRef.current
-      )
-        return;
+  async (messageId: string) => {
+    const index = messagesRef.current.findIndex((m) => m.id === messageId);
+    if (index === -1) return;
 
-      sendInFlightRef.current = true;
-      cancelStreaming();
-      setIsTyping(true);
+    const target = messagesRef.current[index];
 
-      const priorMessages = messagesRef.current.slice(0, index);
-      const historyForRequest = trimHistoryForRequest(
-        toChatHistory(priorMessages),
+    if (
+      target.sender !== "jarvis" ||
+      target.isError ||
+      sendInFlightRef.current
+    ) {
+      return;
+    }
+
+    sendInFlightRef.current = true;
+    cancelStreaming();
+    setIsTyping(true);
+
+    const priorMessages = messagesRef.current.slice(0, index);
+    const historyForRequest = trimHistoryForRequest(
+      toChatHistory(priorMessages),
+    );
+
+    const triggeringUserMessage = [...priorMessages]
+      .reverse()
+      .find((m) => m.sender === "user");
+
+    try {
+      const routed = await routeUserMessage(
+        triggeringUserMessage?.text ?? "",
+        historyForRequest,
       );
-      const triggeringUserMessage = [...priorMessages]
-        .reverse()
-        .find((m) => m.sender === "user");
 
-      try {
-        const routed = await routeUserMessage(
-          triggeringUserMessage?.text ?? "",
-          historyForRequest,
-        );
-        const updated = [...messagesRef.current];
-        updated[index] = {
-          ...target,
-          text: routed.replyText,
-          time: timestamp(),
-        };
-        messagesRef.current = updated;
-        setIsTyping(false);
-        setMessages(updated);
-        beginStreaming(target.id, routed.replyText);
-      } catch (err) {
-        setIsTyping(false);
-        const message =
-          err instanceof AIServiceError ? err.message : "Signal disrupted.";
-        Alert.alert("Regeneration failed", message);
-      } finally {
-        sendInFlightRef.current = false;
+      const updated = [...messagesRef.current];
+
+      updated[index] = {
+        ...target,
+        text: routed.replyText,
+        time: timestamp(),
+      };
+
+      messagesRef.current = updated;
+      setIsTyping(false);
+      setMessages(updated);
+
+      beginStreaming(target.id, routed.replyText);
+
+      // Web-only side channel for browser speech.
+      if (Platform.OS === "web") {
+        publishReplyReady(routed.replyText);
       }
-    },
-    [beginStreaming, cancelStreaming],
-  );
+    } catch (err) {
+      setIsTyping(false);
+
+      const message =
+        err instanceof AIServiceError
+          ? err.message
+          : "Signal disrupted.";
+
+      Alert.alert("Regeneration failed", message);
+    } finally {
+      sendInFlightRef.current = false;
+    }
+  },
+  [beginStreaming, cancelStreaming],
+);
 
   const handleLongPressMessage = useCallback(
     (message: Message) => {

@@ -28,9 +28,16 @@ function CodeBlock({ code, language }: CodeBlockProps) {
     <View style={styles.wrap}>
       <View style={styles.header}>
         <Text style={styles.language}>{language ? language.toUpperCase() : 'CODE'}</Text>
-        <TouchableOpacity onPress={handleCopy} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Text style={styles.copyLabel}>{copied ? 'Copied' : 'Copy'}</Text>
-        </TouchableOpacity>
+        <TouchableOpacity
+  onPress={() => {
+    void handleCopy();
+  }}
+  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+>
+  <Text style={styles.copyLabel}>
+    {copied ? "Copied" : "Copy"}
+  </Text>
+</TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
         <Text style={styles.code}>{code}</Text>

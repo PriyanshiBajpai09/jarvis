@@ -2,7 +2,13 @@
 // Stable version: JS-driven keyboard animations (height/bottom) are
 // separated from native-driver fade/translate animations.
 
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   Easing,
@@ -12,7 +18,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
+import {
+  subscribeToActivityState,
+  ActivityState,
+} from "../services/activityStateBus";
+import { ReactorActivityState } from "../components/ArcReactorMobile";
 import { colors, fonts } from "../theme/theme";
 import BackgroundLayers from "../components/BackgroundLayers";
 import HoloHeaderMobile from "../components/HoloHeaderMobile";
@@ -44,7 +54,7 @@ function useFadeUp(delay: number, reducedMotion: boolean) {
         inputRange: [0, 1],
         outputRange: [18, 0],
       }),
-    [value]
+    [value],
   );
 
   return {
@@ -59,6 +69,26 @@ function getGreeting() {
   if (hour < 12) return "Good morning, Priyanshi.";
   if (hour < 18) return "Good afternoon, Priyanshi.";
   return "Good evening, Priyanshi.";
+}
+
+function mapToReactorState(state: ActivityState): ReactorActivityState {
+  switch (state) {
+    case "listening":
+      return "thinking";
+
+    case "thinking":
+      return "thinking";
+
+    case "speaking":
+      return "streaming";
+
+    case "error":
+      return "error";
+
+    case "idle":
+    default:
+      return "idle";
+  }
 }
 
 const DOCK_BOTTOM_OFFSET = 28;
@@ -93,14 +123,25 @@ export default function HomeScreen() {
   // JS-driven height animation
   const spacerHeight = useMemo(
     () => Animated.add(keyboardHeight, DOCK_RESERVED_SPACE),
-    [keyboardHeight]
+    [keyboardHeight],
   );
 
   // JS-driven bottom animation
   const dockBottom = useMemo(
     () => Animated.add(keyboardHeight, DOCK_BOTTOM_OFFSET + insets.bottom),
-    [keyboardHeight, insets.bottom]
+    [keyboardHeight, insets.bottom],
   );
+
+  const [reactorActivityState, setReactorActivityState] =
+    useState<ReactorActivityState>("idle");
+
+  useEffect(() => {
+    const unsubscribe = subscribeToActivityState((state: ActivityState) => {
+      setReactorActivityState(mapToReactorState(state));
+    });
+
+    return unsubscribe;
+  }, []);
 
   const handleInputFocus = useCallback(() => {
     setTimeout(() => {
@@ -131,15 +172,16 @@ export default function HomeScreen() {
             <Text style={styles.welcomeLine}>{greeting}</Text>
             <Text style={styles.welcomeAccent}>I'm Jarvis.</Text>
             <Text style={styles.welcomeLine}>Everything is ready.</Text>
-            <Text style={styles.welcomeLine}>
-              What are we building today?
-            </Text>
+            <Text style={styles.welcomeLine}>What are we building today?</Text>
           </GlassPanel>
         </Animated.View>
 
         <Animated.View style={[styles.reactorStage, reactorAnim]}>
           <ReactorStageBackdrop size={BACKDROP_SIZE} />
-          <ArcReactorMobile size={REACTOR_SIZE} />
+          <ArcReactorMobile
+            size={REACTOR_SIZE}
+            activityState={reactorActivityState}
+          />
         </Animated.View>
 
         <Animated.View style={statusAnim}>

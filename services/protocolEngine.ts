@@ -4,8 +4,7 @@
 
 import { getLocalContext } from './localContext';
 import { getWeatherAnswer, getNewsAnswer } from './liveInfoService';
-import { getLatestFact } from '../storage/sessionMemory';
-
+import { getLatestFact } from "./sessionMemory";
 export type ProtocolType = 'morning' | 'study' | 'night';
 
 const MORNING_TRIGGERS = [/morning protocol/i, /^start my day\b/i];
@@ -21,21 +20,21 @@ export function detectProtocol(text: string): ProtocolType | null {
 }
 
 const MOTIVATIONAL_LINES = [
-  'Everything is calibrated. Let's make today count.',
-  'Systems green across the board. Ready when you are.',
-  'A clean slate, Priyanshi. Use it well.',
+  "Everything is calibrated. Let's make today count.",
+  "Systems green across the board. Ready when you are.",
+  "A clean slate, Priyanshi. Use it well.",
 ];
 
 const STUDY_FOCUS_LINES = [
-  'One task at a time gets the best results. Shall we begin?',
-  'Focus mode is the objective. I'll keep distractions to a minimum on my end.',
-  'Clear mind, clear priorities. Let's get into it.',
+  "One task at a time gets the best results. Shall we begin?",
+  "Focus mode is the objective. I'll keep distractions to a minimum on my end.",
+  "Clear mind, clear priorities. Let's get into it.",
 ];
 
 const NIGHT_LINES = [
-  'Rest well. I'll keep watch until morning.',
-  'Powering down the noise, not the readiness. Sleep well.',
-  'Everything that needs handling can wait until you're rested.',
+  "Rest well. I'll keep watch until morning.",
+  "Powering down the noise, not the readiness. Sleep well.",
+  "Everything that needs handling can wait until you're rested.",
 ];
 
 function pick(list: string[]): string {

@@ -127,35 +127,40 @@ export async function startListening(): Promise<VoiceResult> {
   }
 
   const granted = await requestMicPermission();
+
   if (!granted) {
-    const message = 'Microphone access has not been authorized.';
+    const message = "Microphone access has not been authorized.";
     callbacks?.onError(message);
     return { success: false, error: message };
   }
 
   try {
-    ExpoSpeechRecognitionModule.start(
-      {
-        lang: 'en-US',
-        interimResults: false,
-        continuous: false,
-        maxAlternatives: 1,
-      } as unknown as Parameters<typeof ExpoSpeechRecognitionModule.start>[0]
-    );
-    return { success: true };
-  } catch {
-    const message = 'Voice channel disrupted.';
-    callbacks?.onError(message);
-    return { success: false, error: message };
-  }
+  ExpoSpeechRecognitionModule.start({
+    lang: "en-US",
+    interimResults: false,
+    continuous: false,
+    maxAlternatives: 1,
+  });
+
+  listening = true;
+  callbacks?.onListeningChange(true);
+
+  return { success: true };
+} catch {
+  const message = "Voice channel disrupted.";
+  callbacks?.onError(message);
+
+  return { success: false, error: message };
+}
 }
 
 export function stopListening(): void {
   try {
-    ExpoSpeechRecognitionModule.stop();
+    void ExpoSpeechRecognitionModule.stop();
   } catch {
     // Nothing to stop — safe no-op.
   }
+
   listening = false;
   callbacks?.onListeningChange(false);
 }
@@ -166,23 +171,28 @@ export function stopListening(): void {
  */
 export function speak(text: string, onDone?: () => void): void {
   const clean = text.trim();
+
   if (!clean) return;
 
   if (speaking) {
-    Speech.stop();
-  }
+  void Speech.stop();
+}
+
   speaking = true;
 
   Speech.speak(clean, {
     rate: 1.0,
     pitch: 1.0,
+
     onDone: () => {
       speaking = false;
       onDone?.();
     },
+
     onStopped: () => {
       speaking = false;
     },
+
     onError: () => {
       speaking = false;
     },
@@ -190,6 +200,6 @@ export function speak(text: string, onDone?: () => void): void {
 }
 
 export function stopSpeaking(): void {
-  Speech.stop();
+  void Speech.stop();
   speaking = false;
 }
