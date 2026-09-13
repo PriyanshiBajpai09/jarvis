@@ -1,8 +1,12 @@
-// SystemStatusPanel.tsx — Part E: footer now cycles through subtle
-// operational status messages instead of a static "All Systems
-// Nominal" string. Metrics, animated bars, and waveform are unchanged.
+// SystemStatusPanel.tsx — v0.6.0, Feature 3: the footer status line now
+// fades out/in on each rotation instead of swapping instantly, and the
+// message pool matches the v0.6.0 spec. Metrics, animated bars, and
+// waveform are UNCHANGED. Layout is unchanged — the fade only affects
+// the existing Text's opacity, no new elements, no size change.
+// Respects reduced motion: when enabled, the message stays fixed on
+// the first entry with no animation and no interval running.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors, fonts } from '../theme/theme';
@@ -26,14 +30,15 @@ const METRICS: Metric[] = [
 ];
 
 const STATUS_MESSAGES = [
-  'All Systems Nominal',
-  'Core Systems Stable',
-  'Network Link Verified',
-  'Knowledge Matrix Online',
-  'Routing Active',
-  'Protocol Engine Ready',
+  'Systems online.',
+  'Arc Reactor stable.',
+  'Mission queue clear.',
+  'Weather uplink stable.',
+  'Focus mode available.',
+  'Standing by.',
 ];
 const STATUS_CYCLE_MS = 4000;
+const STATUS_FADE_MS = 300;
 
 function buildWavePath(seed: number, points: number): string {
   const coords: string[] = [];
@@ -77,25 +82,53 @@ function StatusBar({ metric, index, reducedMotion }: { metric: Metric; index: nu
   );
 }
 
-/** Part E — cycles through STATUS_MESSAGES on a timer. Static (first message only) when reducedMotion is on. */
-function useCyclingStatus(reducedMotion: boolean): string {
-  const [index, setIndex] = useState(0);
+/**
+ * Feature 3 — Living Status Line. Cycles through STATUS_MESSAGES,
+ * fading the text out then in on each transition (never an instant
+ * swap). Respects reduced motion: message stays fixed, opacity fixed
+ * at 1, no interval runs.
+ */
+function useFadingStatusMessage(reducedMotion: boolean): { message: string; opacity: Animated.Value } {
+  const [message, setMessage] = useState(STATUS_MESSAGES[0]);
+  const indexRef = useRef(0);
+  const opacity = useMemo(() => new Animated.Value(1), []);
 
   useEffect(() => {
-    if (reducedMotion) return undefined;
-    const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % STATUS_MESSAGES.length);
-    }, STATUS_CYCLE_MS);
-    return () => clearInterval(interval);
-  }, [reducedMotion]);
+    if (reducedMotion) {
+      indexRef.current = 0;
+      setMessage(STATUS_MESSAGES[0]);
+      opacity.setValue(1);
+      return undefined;
+    }
 
-  return STATUS_MESSAGES[index];
+    const interval = setInterval(() => {
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: STATUS_FADE_MS,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start(() => {
+        indexRef.current = (indexRef.current + 1) % STATUS_MESSAGES.length;
+        setMessage(STATUS_MESSAGES[indexRef.current]);
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: STATUS_FADE_MS,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }).start();
+      });
+    }, STATUS_CYCLE_MS);
+
+    return () => clearInterval(interval);
+  }, [reducedMotion, opacity]);
+
+  return { message, opacity };
 }
 
 function SystemStatusPanel() {
   const reducedMotion = useReducedMotion();
   const blink = useMemo(() => new Animated.Value(1), []);
-  const statusMessage = useCyclingStatus(reducedMotion);
+  const { message: statusMessage, opacity: statusOpacity } = useFadingStatusMessage(reducedMotion);
 
   useEffect(() => {
     if (reducedMotion) return undefined;
@@ -129,7 +162,7 @@ function SystemStatusPanel() {
 
       <View style={styles.footer}>
         <Animated.View style={[styles.footerDot, { opacity: blink }]} />
-        <Text style={styles.footerText}>{statusMessage}</Text>
+        <Animated.Text style={[styles.footerText, { opacity: statusOpacity }]}>{statusMessage}</Animated.Text>
       </View>
     </GlassPanel>
   );

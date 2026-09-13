@@ -213,7 +213,12 @@ const platformDashesInner = Array.from({ length: 16 }, (_, i) => {
   };
 });
 
-export type ReactorActivityState = "idle" | "thinking" | "streaming" | "error";
+export type ReactorActivityState =
+  | "idle"
+  | "listening"
+  | "thinking"
+  | "streaming"
+  | "error";
 
 interface ArcReactorMobileProps {
   size?: number;
@@ -234,22 +239,33 @@ interface CorePulseConfig {
 
 function getCorePulseConfig(state: ReactorActivityState): CorePulseConfig {
   switch (state) {
+    case "listening":
+      return {
+        breatheDuration: 850,
+        breatheScaleRange: [1, 1.18],
+        breatheOpacityRange: [0.78, 1],
+        flickerDuration: 900,
+        flickerScaleRange: [1, 1.09],
+      };
+
     case "thinking":
       return {
         breatheDuration: 900,
         breatheScaleRange: [1, 1.16],
-        breatheOpacityRange: [0.7, 1],
+        breatheOpacityRange: [0.75, 1],
         flickerDuration: 1000,
         flickerScaleRange: [1, 1.08],
       };
+
     case "streaming":
       return {
         breatheDuration: 650,
-        breatheScaleRange: [1, 1.2],
-        breatheOpacityRange: [0.8, 1],
+        breatheScaleRange: [1, 1.22],
+        breatheOpacityRange: [0.85, 1],
         flickerDuration: 700,
         flickerScaleRange: [1, 1.12],
       };
+
     case "error":
       return {
         breatheDuration: 2100,
@@ -258,6 +274,7 @@ function getCorePulseConfig(state: ReactorActivityState): CorePulseConfig {
         flickerDuration: 1300,
         flickerScaleRange: [1, 1.06],
       };
+
     case "idle":
     default:
       return {
@@ -267,6 +284,24 @@ function getCorePulseConfig(state: ReactorActivityState): CorePulseConfig {
         flickerDuration: 1300,
         flickerScaleRange: [1, 1.06],
       };
+  }
+}
+
+function getStateBloomBaseline(state: ReactorActivityState): number {
+  switch (state) {
+    case "listening":
+      return 0.32;
+
+    case "thinking":
+      return 0.48;
+
+    case "streaming":
+      return 0.62;
+
+    case "error":
+    case "idle":
+    default:
+      return 0;
   }
 }
 
@@ -312,6 +347,7 @@ function ArcReactorMobile({
   useEffect(() => {
     if (reducedMotion) return undefined;
     const running: Animated.CompositeAnimation[] = [];
+
     const spinLoop = (v: Animated.Value, d: number) =>
       Animated.loop(
         Animated.timing(v, {
@@ -322,15 +358,41 @@ function ArcReactorMobile({
         }),
       );
 
+    // NEW: stronger ring energy during Thinking/Streaming
+    const isEnergized =
+      activityState === "listening" ||
+      activityState === "thinking" ||
+      activityState === "streaming";
+
+    // Listening = fast but slightly calmer than speaking
+    const radarDuration =
+      activityState === "streaming" ? 2200 : isEnergized ? 2600 : 4000;
+
+    const hudArcDuration =
+      activityState === "streaming" ? 10000 : isEnergized ? 14000 : 20000;
+
+    // Reset rotation values before restarting loops
+    segRotation.setValue(0);
+    tickRotation.setValue(0);
+    turbineRotation.setValue(0);
+    orbitRotation.setValue(0);
+    calibrationDotRotation.setValue(0);
+    radarRotation.setValue(0);
+    calibrationRotation.setValue(0);
+    hudArcRotation.setValue(0);
+    outerDashRotation.setValue(0);
+    atmosphereRotation.setValue(0);
+    platformRotation.setValue(0);
+
     running.push(
       spinLoop(segRotation, 14000),
       spinLoop(tickRotation, 9000),
       spinLoop(turbineRotation, 11000),
       spinLoop(orbitRotation, 6000),
       spinLoop(calibrationDotRotation, 15000),
-      spinLoop(radarRotation, 4000),
+      spinLoop(radarRotation, radarDuration), // changed
       spinLoop(calibrationRotation, 26000),
-      spinLoop(hudArcRotation, 20000),
+      spinLoop(hudArcRotation, hudArcDuration), // changed
       spinLoop(outerDashRotation, 34000),
       spinLoop(atmosphereRotation, 55000),
       spinLoop(platformRotation, 40000),
@@ -452,17 +514,22 @@ function ArcReactorMobile({
       Animated.loop(
         Animated.sequence([
           Animated.delay(leds[i].delay),
+
           Animated.timing(v, {
             toValue: 1,
-            duration: 220,
+            duration: 420,
+            easing: Easing.bezier(0.42, 0, 0.25, 1),
             useNativeDriver: true,
           }),
+
           Animated.timing(v, {
             toValue: 0.25,
-            duration: 400,
+            duration: 720,
+            easing: Easing.bezier(0.42, 0, 0.25, 1),
             useNativeDriver: true,
           }),
-          Animated.delay(2600),
+
+          Animated.delay(2200),
         ]),
       ),
     );
@@ -721,7 +788,13 @@ function ArcReactorMobile({
   const orbitDotSize = 4.5 * scale;
   const calDotSize = 2.6 * scale;
 
-  const bloomExtra = Math.max(0, Math.min(1, bloomBoost));
+  const bloomExtra = Math.max(
+    0,
+    Math.min(1, Math.max(bloomBoost, getStateBloomBaseline(activityState))),
+  );
+
+  const bloomAnim = useMemo(() => new Animated.Value(bloomExtra), []);
+
   const beamHeight = size * 0.85;
   const shadowWidth = size * 0.62;
   const beamStopA = Math.min(1, 0.4 * floorIntensity);
@@ -731,6 +804,16 @@ function ArcReactorMobile({
 
   const platformSize = size * 0.72;
   const platformGlowSize = size * 0.9;
+
+  useEffect(() => {
+    Animated.spring(bloomAnim, {
+      toValue: bloomExtra,
+      stiffness: 120,
+      damping: 18,
+      mass: 0.9,
+      useNativeDriver: true,
+    }).start();
+  }, [bloomExtra, bloomAnim]);
 
   return (
     <View style={styles.stageWrap}>

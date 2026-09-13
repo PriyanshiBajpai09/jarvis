@@ -74,7 +74,7 @@ function getGreeting() {
 function mapToReactorState(state: ActivityState): ReactorActivityState {
   switch (state) {
     case "listening":
-      return "thinking";
+      return "listening";
 
     case "thinking":
       return "thinking";

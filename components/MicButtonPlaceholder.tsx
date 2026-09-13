@@ -1,14 +1,11 @@
-// MicButtonPlaceholder.tsx — v2: Web Push-to-Talk.
-// On native platforms (Expo Go / iOS / Android), this remains the pure
-// visual placeholder from the previous stable baseline — no service
-// imports beyond the browser-safe webVoiceService, which never touches
-// any native module and is a no-op everywhere `window` is undefined.
-// On Expo Web with SpeechRecognition support, tapping the mic starts a
-// real single-utterance listen; the transcript is forwarded into the
-// EXISTING chat pipeline via chatBus (never a duplicate send path);
-// once a reply is ready (via replyBus), it is spoken aloud via
-// window.speechSynthesis. Visual design (halos, ring, ripple, core,
-// mic glyph) is byte-identical to the prior version.
+// MicButtonPlaceholder.tsx — v0.4: clear mic states (Part C). Visual
+// design (halos, ring, ripple, core, mic glyph) is UNCHANGED. Native
+// behavior is UNCHANGED — a decorative toggle with no service imports
+// executed. On web with SpeechRecognition support, a local voiceState
+// now tracks idle/listening/thinking/speaking/ready/error and displays
+// a matching label above the mic at all times (not just on error),
+// using the same absolutely-positioned slot as before — no layout
+// change.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -33,14 +30,34 @@ interface MicButtonPlaceholderProps {
   onPress?: () => void;
 }
 
+type LocalVoiceState = VoiceActivityState | 'ready';
+
 const SIZE = 80;
 const STATUS_DISPLAY_MS = 3200;
-
+const READY_DISPLAY_MS = 1200;
 const IS_WEB = Platform.OS === 'web';
+
+function getDisplayLabel(state: LocalVoiceState, supported: boolean): string {
+  if (!supported) return 'Tap to Talk';
+  switch (state) {
+    case 'listening':
+      return 'Listening...';
+    case 'thinking':
+      return 'Processing...';
+    case 'speaking':
+      return 'Speaking...';
+    case 'ready':
+      return 'Ready';
+    case 'error':
+    case 'idle':
+    default:
+      return 'Tap to Talk';
+  }
+}
 
 function MicButtonPlaceholder({ onPress }: MicButtonPlaceholderProps) {
   const reducedMotion = useReducedMotion();
-  const [isListening, setIsListening] = useState(false);
+  const [voiceState, setVoiceState] = useState<LocalVoiceState>('idle');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [webSupported, setWebSupported] = useState(false);
 
@@ -50,10 +67,10 @@ function MicButtonPlaceholder({ onPress }: MicButtonPlaceholderProps) {
   const pressRipple = useMemo(() => new Animated.Value(0), []);
   const rippleKeyRef = useRef(0);
   const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const readyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Feature-detect once on mount. isWebVoiceSupported() internally
-  // guards every browser API behind `typeof window` checks, so this is
-  // safe to call on native too (it simply resolves to false there).
+  const isListening = voiceState === 'listening';
+
   useEffect(() => {
     setWebSupported(IS_WEB && isWebVoiceSupported());
   }, []);
@@ -63,16 +80,16 @@ function MicButtonPlaceholder({ onPress }: MicButtonPlaceholderProps) {
 
     configureWebVoice({
       onTranscript: (text) => {
-        setIsListening(false);
+        setVoiceState('thinking');
         publishActivityState('thinking');
         publishExternalMessage(text);
       },
-      onStateChange: (state: VoiceActivityState) => {
+      onStateChange: (state) => {
+        setVoiceState(state);
         publishActivityState(state);
-        setIsListening(state === 'listening');
       },
       onError: (message) => {
-        setIsListening(false);
+        setVoiceState('idle');
         publishActivityState('error');
         setStatusMessage(message);
         if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
@@ -88,17 +105,25 @@ function MicButtonPlaceholder({ onPress }: MicButtonPlaceholderProps) {
     };
   }, [webSupported]);
 
-  // Speaks a completed reply once it's ready, only on web. The mic
-  // component owns TTS because it already owns the speaking/listening
-  // activity states — ConversationPanel only publishes the finished
-  // text via replyBus, never calls speak() itself.
   useEffect(() => {
     if (!webSupported) return undefined;
     const unsubscribe = subscribeToReplyReady((text) => {
-      speak(text, () => publishActivityState('idle'));
+      speak(text, () => {
+        publishActivityState('idle');
+        setVoiceState('ready');
+        if (readyTimeoutRef.current) clearTimeout(readyTimeoutRef.current);
+        readyTimeoutRef.current = setTimeout(() => setVoiceState('idle'), READY_DISPLAY_MS);
+      });
     });
     return unsubscribe;
   }, [webSupported]);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+      if (readyTimeoutRef.current) clearTimeout(readyTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (reducedMotion) return undefined;
@@ -140,15 +165,12 @@ function MicButtonPlaceholder({ onPress }: MicButtonPlaceholderProps) {
     Animated.timing(pressRipple, { toValue: 1, duration: 620, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
 
     if (!webSupported) {
-      // Native / unsupported-browser path: purely decorative toggle,
-      // matching the previous stable placeholder behavior exactly.
-      // Expo Go compatible — no voice service calls at all.
       if (IS_WEB) {
         setStatusMessage('Voice input is not available in this browser.');
         if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
         statusTimeoutRef.current = setTimeout(() => setStatusMessage(null), STATUS_DISPLAY_MS);
       } else {
-        setIsListening((prev) => !prev);
+        setVoiceState((prev) => (prev === 'listening' ? 'idle' : 'listening'));
       }
       onPress?.();
       return;
@@ -158,7 +180,7 @@ function MicButtonPlaceholder({ onPress }: MicButtonPlaceholderProps) {
 
     if (isListening) {
       stopListening();
-      setIsListening(false);
+      setVoiceState('idle');
       publishActivityState('idle');
     } else {
       if (isSpeakingNow()) {
@@ -170,12 +192,12 @@ function MicButtonPlaceholder({ onPress }: MicButtonPlaceholderProps) {
     onPress?.();
   }
 
-  const isError = Boolean(statusMessage) && !isListening;
-  const labelText = statusMessage ?? (isListening ? 'Listening...' : null);
+  const isError = Boolean(statusMessage);
+  const labelText = statusMessage ?? getDisplayLabel(voiceState, webSupported);
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
-      {labelText && <Text style={[styles.statusLabel, isError ? styles.statusLabelError : null]}>{labelText}</Text>}
+      <Text style={[styles.statusLabel, isError ? styles.statusLabelError : null]}>{labelText}</Text>
 
       <Animated.View pointerEvents="none" style={[styles.outerBloom, { transform: [{ scale: haloScale }], opacity: Animated.multiply(haloOpacity, 0.55) }]} />
       <Animated.View pointerEvents="none" style={[styles.innerBloom, { transform: [{ scale: haloScale }], opacity: haloOpacity }]} />
