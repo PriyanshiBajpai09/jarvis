@@ -490,3 +490,29 @@ export function stopListening(): void {
   }
   activeRecognition = null;
 }
+
+/* ---------------------------------------------------------------- */
+/* v0.9.0 — Developer Mode Voice Lab. Purely additive: these read     */
+/* existing module state or reset a cache, without changing selection */
+/* logic, chunking, pacing, or interruption behavior.                 */
+/* ---------------------------------------------------------------- */
+
+export const SPEECH_RATE = 0.9;
+export const SPEECH_PITCH = 0.82;
+export const SPEECH_VOLUME = 0.95;
+
+/** Read-only — the name of the currently selected voice, or null if none has been chosen yet this session. */
+export function getSelectedVoiceName(): string | null {
+  return selectedVoice?.name ?? null;
+}
+
+/** Clears the cached voice selection so the next spoken reply re-runs getPreferredVoice()'s existing selection logic from scratch. Does not change that logic. */
+export function reloadVoiceEngine(): void {
+  selectedVoice = null;
+  voicesPromise = null;
+}
+
+/** Read-only preview of the pronunciation dictionary's effect on a given string, for the Developer Mode Voice Lab. Does not speak anything. */
+export function previewPronunciation(text: string): string {
+  return normalizeForSpeech(text);
+}

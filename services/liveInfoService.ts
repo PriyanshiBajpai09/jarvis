@@ -154,3 +154,9 @@ export function getFactAnswer(
 ): Promise<string | null> {
   return Promise.resolve(null);
 }
+
+/** v0.9.0 — Developer Mode diagnostics, read-only. Reports whether a Tavily key is present, without making a network call. */
+export function isLiveInfoConfigured(): boolean {
+  const key = process.env.EXPO_PUBLIC_TAVILY_API_KEY as string | undefined;
+  return !!key?.trim();
+}
