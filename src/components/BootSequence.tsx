@@ -11,7 +11,7 @@
 // the exact same visual language as the HUD it precedes, rather than being a
 // separate generic loader.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface BootSequenceProps {
   /** Called once, when the exit transition finishes and the HUD should take over. */
@@ -30,14 +30,29 @@ const EXIT_DURATION_MS = 900;
 const REDUCED_EXIT_MS = 300;
 
 const LOG_LINES = [
-  'Initializing Neural Core...',
-  'Loading Cognitive Matrix...',
-  'Calibrating Holographic Systems...',
-  'Authenticating User...',
+  "Initializing Neural Core...",
+  "Loading Cognitive Matrix...",
+  "Calibrating Holographic Systems...",
+  "Authenticating User...",
 ];
 
-const CHECKLIST_ITEMS = ['Prompt Shield', 'Memory Vault', 'Voice Engine', 'System Integrity'];
+const CHECKLIST_ITEMS = [
+  "Prompt Shield",
+  "Memory Vault",
+  "Voice Engine",
+  "System Integrity",
+];
+function getGreeting(): string {
+  const hour = new Date().getHours();
 
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function getStoredName(): string {
+  return localStorage.getItem("jarvis_name") || "User";
+}
 /* ---------------------------------------------------------------- */
 /* Mini Arc Reactor — same visual language as ArcReactorCore.tsx,   *
  * scaled down and self-contained (own gradient/filter ids so it   *
@@ -52,19 +67,44 @@ function polar(cx: number, cy: number, r: number, angleDeg: number) {
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-function segmentPath(cx: number, cy: number, rInner: number, rOuter: number, start: number, end: number) {
+function segmentPath(
+  cx: number,
+  cy: number,
+  rInner: number,
+  rOuter: number,
+  start: number,
+  end: number,
+) {
   const outerStart = polar(cx, cy, rOuter, end);
   const outerEnd = polar(cx, cy, rOuter, start);
   const innerEnd = polar(cx, cy, rInner, start);
   const innerStart = polar(cx, cy, rInner, end);
   const largeArc = end - start <= 180 ? 0 : 1;
   return [
-    'M', outerStart.x, outerStart.y,
-    'A', rOuter, rOuter, 0, largeArc, 0, outerEnd.x, outerEnd.y,
-    'L', innerEnd.x, innerEnd.y,
-    'A', rInner, rInner, 0, largeArc, 1, innerStart.x, innerStart.y,
-    'Z',
-  ].join(' ');
+    "M",
+    outerStart.x,
+    outerStart.y,
+    "A",
+    rOuter,
+    rOuter,
+    0,
+    largeArc,
+    0,
+    outerEnd.x,
+    outerEnd.y,
+    "L",
+    innerEnd.x,
+    innerEnd.y,
+    "A",
+    rInner,
+    rInner,
+    0,
+    largeArc,
+    1,
+    innerStart.x,
+    innerStart.y,
+    "Z",
+  ].join(" ");
 }
 
 const MINI_SEGMENT_COUNT = 12;
@@ -74,7 +114,10 @@ const MINI_SPAN = 360 / MINI_SEGMENT_COUNT - MINI_GAP;
 const miniSegments = Array.from({ length: MINI_SEGMENT_COUNT }, (_, i) => {
   const start = i * (360 / MINI_SEGMENT_COUNT) + MINI_GAP / 2;
   const end = start + MINI_SPAN;
-  return { key: `mini-seg-${i}`, d: segmentPath(MINI_CENTER, MINI_CENTER, 62, 84, start, end) };
+  return {
+    key: `mini-seg-${i}`,
+    d: segmentPath(MINI_CENTER, MINI_CENTER, 62, 84, start, end),
+  };
 });
 
 const miniTicks = Array.from({ length: 36 }, (_, i) => {
@@ -82,7 +125,14 @@ const miniTicks = Array.from({ length: 36 }, (_, i) => {
   const isMajor = angle % 30 === 0;
   const outer = polar(MINI_CENTER, MINI_CENTER, 42, angle);
   const inner = polar(MINI_CENTER, MINI_CENTER, isMajor ? 34 : 38, angle);
-  return { key: `mini-tick-${i}`, x1: outer.x, y1: outer.y, x2: inner.x, y2: inner.y, isMajor };
+  return {
+    key: `mini-tick-${i}`,
+    x1: outer.x,
+    y1: outer.y,
+    x2: inner.x,
+    y2: inner.y,
+    isMajor,
+  };
 });
 
 interface MiniReactorProps {
@@ -112,7 +162,13 @@ function MiniReactor({ intensity }: MiniReactorProps) {
             <stop offset="60%" stopColor="#00eaff" stopOpacity="0.2" />
             <stop offset="100%" stopColor="#00eaff" stopOpacity="0" />
           </radialGradient>
-          <linearGradient id="bootGlassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient
+            id="bootGlassGradient"
+            x1="0%"
+            y1="0%"
+            x2="100%"
+            y2="100%"
+          >
             <stop offset="0%" stopColor="rgba(0,234,255,0.34)" />
             <stop offset="50%" stopColor="rgba(0,234,255,0.06)" />
             <stop offset="100%" stopColor="rgba(0,234,255,0.24)" />
@@ -124,21 +180,47 @@ function MiniReactor({ intensity }: MiniReactorProps) {
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="bootSoftBlur" x="-100%" y="-100%" width="300%" height="300%">
+          <filter
+            id="bootSoftBlur"
+            x="-100%"
+            y="-100%"
+            width="300%"
+            height="300%"
+          >
             <feGaussianBlur stdDeviation="6" />
           </filter>
         </defs>
 
-        <circle cx={MINI_CENTER} cy={MINI_CENTER} r="90" fill="none" stroke="rgba(0,234,255,0.3)" strokeWidth="2" />
+        <circle
+          cx={MINI_CENTER}
+          cy={MINI_CENTER}
+          r="90"
+          fill="none"
+          stroke="rgba(0,234,255,0.3)"
+          strokeWidth="2"
+        />
 
         <g className="boot-reactor-segments">
           {miniSegments.map((s) => (
-            <path key={s.key} d={s.d} fill="url(#bootGlassGradient)" stroke="rgba(0,234,255,0.55)" strokeWidth="1" />
+            <path
+              key={s.key}
+              d={s.d}
+              fill="url(#bootGlassGradient)"
+              stroke="rgba(0,234,255,0.55)"
+              strokeWidth="1"
+            />
           ))}
         </g>
 
         <g className="boot-reactor-ticks">
-          <circle cx={MINI_CENTER} cy={MINI_CENTER} r="42" fill="none" stroke="rgba(0,234,255,0.25)" strokeWidth="0.75" />
+          <circle
+            cx={MINI_CENTER}
+            cy={MINI_CENTER}
+            r="42"
+            fill="none"
+            stroke="rgba(0,234,255,0.25)"
+            strokeWidth="0.75"
+          />
           {miniTicks.map((t) => (
             <line
               key={t.key}
@@ -146,7 +228,7 @@ function MiniReactor({ intensity }: MiniReactorProps) {
               y1={t.y1}
               x2={t.x2}
               y2={t.y2}
-              stroke={t.isMajor ? 'var(--cyan)' : 'rgba(0,234,255,0.4)'}
+              stroke={t.isMajor ? "var(--cyan)" : "rgba(0,234,255,0.4)"}
               strokeWidth={t.isMajor ? 1.4 : 0.7}
             />
           ))}
@@ -160,8 +242,20 @@ function MiniReactor({ intensity }: MiniReactorProps) {
           fill="url(#bootHaloGradient)"
           filter="url(#bootSoftBlur)"
         />
-        <circle cx={MINI_CENTER} cy={MINI_CENTER} r="18" fill="url(#bootCoreGradient)" filter="url(#bootBloom)" />
-        <circle className="boot-reactor-core-flicker" cx={MINI_CENTER} cy={MINI_CENTER} r="7" fill="#ffffff" />
+        <circle
+          cx={MINI_CENTER}
+          cy={MINI_CENTER}
+          r="18"
+          fill="url(#bootCoreGradient)"
+          filter="url(#bootBloom)"
+        />
+        <circle
+          className="boot-reactor-core-flicker"
+          cx={MINI_CENTER}
+          cy={MINI_CENTER}
+          r="7"
+          fill="#ffffff"
+        />
       </svg>
     </div>
   );
@@ -199,11 +293,11 @@ function generateBootParticles(count: number): BootParticle[] {
 /* Main component                                                    */
 /* ---------------------------------------------------------------- */
 
-type BootPhase = 'booting' | 'exiting' | 'hidden';
+type BootPhase = "booting" | "exiting" | "hidden";
 
 function BootSequence({ onComplete }: BootSequenceProps) {
   const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<BootPhase>('booting');
+  const [phase, setPhase] = useState<BootPhase>("booting");
 
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
@@ -215,11 +309,15 @@ function BootSequence({ onComplete }: BootSequenceProps) {
   const particles = useMemo(() => generateBootParticles(24), []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (typeof window !== "undefined" && window.matchMedia) {
+      reducedMotionRef.current = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
     }
 
-    const duration = reducedMotionRef.current ? REDUCED_DURATION_MS : TOTAL_DURATION_MS;
+    const duration = reducedMotionRef.current
+      ? REDUCED_DURATION_MS
+      : TOTAL_DURATION_MS;
 
     function step(timestamp: number) {
       if (startRef.current === null) {
@@ -238,12 +336,16 @@ function BootSequence({ onComplete }: BootSequenceProps) {
       completedRef.current = true;
 
       // TODO(future): trigger boot chime / reactor hum here once audio is wired in.
-      const holdMs = reducedMotionRef.current ? REDUCED_HOLD_MS : HOLD_AFTER_COMPLETE_MS;
+      const holdMs = reducedMotionRef.current
+        ? REDUCED_HOLD_MS
+        : HOLD_AFTER_COMPLETE_MS;
       holdTimeoutRef.current = window.setTimeout(() => {
-        setPhase('exiting');
-        const exitMs = reducedMotionRef.current ? REDUCED_EXIT_MS : EXIT_DURATION_MS;
+        setPhase("exiting");
+        const exitMs = reducedMotionRef.current
+          ? REDUCED_EXIT_MS
+          : EXIT_DURATION_MS;
         exitTimeoutRef.current = window.setTimeout(() => {
-          setPhase('hidden');
+          setPhase("hidden");
           onComplete?.();
         }, exitMs);
       }, holdMs);
@@ -253,39 +355,61 @@ function BootSequence({ onComplete }: BootSequenceProps) {
 
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      if (holdTimeoutRef.current !== null) window.clearTimeout(holdTimeoutRef.current);
-      if (exitTimeoutRef.current !== null) window.clearTimeout(exitTimeoutRef.current);
+      if (holdTimeoutRef.current !== null)
+        window.clearTimeout(holdTimeoutRef.current);
+      if (exitTimeoutRef.current !== null)
+        window.clearTimeout(exitTimeoutRef.current);
     };
     // Intentionally run once — the whole sequence is timeline-driven.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (phase === 'hidden') {
+  if (phase === "hidden") {
     return null;
   }
 
-  const stage = progress < 15 ? 1 : progress < 35 ? 2 : progress < 65 ? 3 : progress < 90 ? 4 : 5;
+  const stage =
+    progress < 15
+      ? 1
+      : progress < 35
+        ? 2
+        : progress < 65
+          ? 3
+          : progress < 90
+            ? 4
+            : 5;
 
   const logVisibleCount =
     stage >= 2
-      ? Math.min(LOG_LINES.length, Math.max(1, Math.ceil(((Math.min(progress, 35) - 15) / 20) * LOG_LINES.length)))
+      ? Math.min(
+          LOG_LINES.length,
+          Math.max(
+            1,
+            Math.ceil(((Math.min(progress, 35) - 15) / 20) * LOG_LINES.length),
+          ),
+        )
       : 0;
 
   const checklistVisibleCount =
     stage === 5
       ? CHECKLIST_ITEMS.length
       : stage === 4
-      ? Math.min(
-          CHECKLIST_ITEMS.length,
-          Math.max(1, Math.ceil(((Math.min(progress, 90) - 65) / 25) * CHECKLIST_ITEMS.length))
-        )
-      : 0;
+        ? Math.min(
+            CHECKLIST_ITEMS.length,
+            Math.max(
+              1,
+              Math.ceil(
+                ((Math.min(progress, 90) - 65) / 25) * CHECKLIST_ITEMS.length,
+              ),
+            ),
+          )
+        : 0;
 
   const reactorIntensity: 3 | 4 | 5 = stage <= 3 ? 3 : stage === 4 ? 4 : 5;
-
+  const storedName = getStoredName();
+  const greeting = getGreeting();
   return (
     <div
-      className={`boot-sequence ${phase === 'exiting' ? 'boot-sequence--exiting' : ''}`}
+      className={`boot-sequence ${phase === "exiting" ? "boot-sequence--exiting" : ""}`}
       role="status"
       aria-live="polite"
       aria-label="Jarvis operating system booting"
@@ -304,7 +428,7 @@ function BootSequence({ onComplete }: BootSequenceProps) {
               animationDuration: p.duration,
               animationDelay: p.delay,
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ['--drift' as any]: p.drift,
+              ["--drift" as any]: p.drift,
             }}
           />
         ))}
@@ -321,7 +445,11 @@ function BootSequence({ onComplete }: BootSequenceProps) {
         {stage <= 2 && (
           <div className="boot-log-panel glass-panel corner-brackets">
             {LOG_LINES.slice(0, logVisibleCount).map((line, i) => (
-              <p key={line} className="boot-log-line" style={{ animationDelay: `${i * 0.06}s` }}>
+              <p
+                key={line}
+                className="boot-log-line"
+                style={{ animationDelay: `${i * 0.06}s` }}
+              >
                 <span className="boot-log-caret">&gt;</span> {line}
               </p>
             ))}
@@ -337,7 +465,11 @@ function BootSequence({ onComplete }: BootSequenceProps) {
         {stage === 4 && (
           <div className="boot-checklist glass-panel corner-brackets">
             {CHECKLIST_ITEMS.slice(0, checklistVisibleCount).map((item, i) => (
-              <div key={item} className="boot-checklist-item" style={{ animationDelay: `${i * 0.08}s` }}>
+              <div
+                key={item}
+                className="boot-checklist-item"
+                style={{ animationDelay: `${i * 0.08}s` }}
+              >
                 <span className="boot-checklist-check">&#10003;</span>
                 <span className="boot-checklist-label">{item}</span>
               </div>
@@ -347,8 +479,13 @@ function BootSequence({ onComplete }: BootSequenceProps) {
 
         {stage === 5 && (
           <div className="boot-welcome">
-            <p className="boot-welcome-line">Welcome, Priyanshi.</p>
-            <p className="boot-welcome-line boot-welcome-line--accent">Jarvis Online.</p>
+            <p className="boot-welcome-line">
+              {greeting}, {storedName}.
+            </p>
+
+            <p className="boot-welcome-line boot-welcome-line--accent">
+              Jarvis Online.
+            </p>
           </div>
         )}
       </div>
@@ -356,7 +493,10 @@ function BootSequence({ onComplete }: BootSequenceProps) {
       <div className="boot-progress-block">
         <span className="boot-progress-percent">{Math.floor(progress)}%</span>
         <div className="boot-progress-bar">
-          <span className="boot-progress-fill" style={{ width: `${progress}%` }} />
+          <span
+            className="boot-progress-fill"
+            style={{ width: `${progress}%` }}
+          />
           <span className="boot-progress-energy" />
         </div>
       </div>

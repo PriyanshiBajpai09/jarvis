@@ -182,3 +182,110 @@
     border-right-color: var(--border);
   }
 }
+/* ===========================
+   Identity Authorization
+   =========================== */
+
+.identity-overlay{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at center, rgba(0,240,255,.08), transparent 40%),
+    linear-gradient(180deg,#02040A,#050B14);
+  backdrop-filter:blur(12px);
+}
+
+.identity-card{
+  position:relative;
+  overflow:hidden;
+  width:min(92vw,560px);
+  padding:48px;
+  border-radius:26px;
+  border:1px solid rgba(0,240,255,.18);
+  background:rgba(8,18,32,.46);
+  box-shadow:
+    inset 0 0 40px rgba(0,240,255,.05),
+    0 0 60px rgba(0,240,255,.08);
+}
+
+.identity-scanline{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(
+    transparent,
+    rgba(0,240,255,.08),
+    transparent
+  );
+  animation:identityScan 3s linear infinite;
+}
+
+.identity-label{
+  text-align:center;
+  color:#66F3FF;
+  letter-spacing:.35em;
+  font-size:.72rem;
+}
+
+.identity-title{
+  margin:18px 0 10px;
+  text-align:center;
+  font-size:3.4rem;
+  font-weight:200;
+  color:white;
+}
+
+.identity-subtitle{
+  text-align:center;
+  color:#A7C9D6;
+  margin-bottom:28px;
+}
+
+.identity-input{
+  width:100%;
+  padding:16px;
+  text-align:center;
+  border-radius:14px;
+  border:1px solid rgba(0,240,255,.28);
+  background:rgba(255,255,255,.03);
+  color:white;
+  outline:none;
+}
+
+.identity-input:focus{
+  border-color:#55E7FF;
+  box-shadow:0 0 24px rgba(0,240,255,.16);
+}
+
+.identity-button{
+  width:100%;
+  margin-top:22px;
+  padding:14px;
+  border-radius:999px;
+  border:1px solid rgba(0,240,255,.42);
+  background:transparent;
+  color:#66F3FF;
+  letter-spacing:.25em;
+  cursor:pointer;
+  transition:.25s;
+}
+
+.identity-button:hover{
+  background:rgba(0,240,255,.08);
+}
+
+.identity-footer{
+  margin-top:20px;
+  text-align:center;
+  color:#6FB8C8;
+  font-size:.72rem;
+  letter-spacing:.18em;
+}
+
+@keyframes identityScan{
+  from{transform:translateY(-100%)}
+  to{transform:translateY(100%)}
+}

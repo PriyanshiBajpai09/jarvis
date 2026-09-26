@@ -1,99 +1,131 @@
-// ChatPanel.tsx
-// Right HUD panel: JARVIS conversation surface.
-//
-// SECURITY-ARCHITECTURE NOTE (no backend implemented yet):
-// `getJarvisResponse` is the single seam where a real AI call will be
-// wired in later. When that happens, user input should pass through an
-// input-sanitization step before leaving this component, and the AI
-// response should pass through output filtering / command-confirmation
-// logic before being rendered here. Both hooks are left as clearly
-// marked no-op pass-throughs so the swap doesn't require restructuring.
-
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { askJarvis } from "../services/aiService";
+import type { ChatTurn } from "../services/aiTypes";
 
 interface ChatMessage {
   id: string;
-  sender: 'jarvis' | 'user';
+  sender: "jarvis" | "user";
   text: string;
   time: string;
 }
 
 function timestamp(): string {
-  const d = new Date();
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return new Date().toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 function createId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// Placeholder seam for future AI integration — intentionally simple for now.
 function sanitizeInput(raw: string): string {
   return raw.trim().slice(0, 500);
 }
 
-// Placeholder seam for future AI integration — replace with a real model call.
-function getJarvisResponse(): string {
-  const responses = [
-    'Request received. Standing by for further instructions.',
-    'Processing. I will let you know once analysis completes.',
-    'Understood. Adding that to the active task queue.',
-    'Noted. Let me know if priorities change.',
-  ];
-  return responses[Math.floor(Math.random() * responses.length)];
+function getGreeting(): string {
+  const hour = new Date().getHours();
+
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 18) return "Good afternoon";
+  return "Good evening";
 }
 
-const INITIAL_MESSAGES: ChatMessage[] = [
-  { id: 'm1', sender: 'jarvis', text: 'Good morning, Priyanshi.', time: timestamp() },
-  { id: 'm2', sender: 'jarvis', text: 'All systems are operational.', time: timestamp() },
-  { id: 'm3', sender: 'jarvis', text: 'How can I assist you today?', time: timestamp() },
-];
+function getUserName(): string {
+  return localStorage.getItem("jarvis_name") || "Commander";
+}
 
-function ChatPanel() {
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
-  const [draft, setDraft] = useState('');
+function buildInitialMessages(): ChatMessage[] {
+  const name = getUserName();
+
+  return [
+    {
+      id: "m1",
+      sender: "jarvis",
+      text: `${getGreeting()}, ${name}.`,
+      time: timestamp(),
+    },
+    {
+      id: "m2",
+      sender: "jarvis",
+      text: "All systems are operational.",
+      time: timestamp(),
+    },
+    {
+      id: "m3",
+      sender: "jarvis",
+      text: "How can I assist you today?",
+      time: timestamp(),
+    },
+  ];
+}
+
+export default function ChatPanel() {
+  const [messages, setMessages] = useState<ChatMessage[]>(buildInitialMessages);
+  const [draft, setDraft] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const typingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages, isTyping]);
 
-  // Clean up any pending timeout on unmount to avoid state updates after unmount.
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current !== null) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+
     const clean = sanitizeInput(draft);
-    if (!clean) return;
+
+    if (!clean || isTyping) return;
 
     const userMessage: ChatMessage = {
       id: createId(),
-      sender: 'user',
+      sender: "user",
       text: clean,
       time: timestamp(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-    setDraft('');
+    const updatedMessages = [...messages, userMessage];
+
+    setMessages(updatedMessages);
+    setDraft("");
     setIsTyping(true);
 
-    typingTimeoutRef.current = window.setTimeout(() => {
-      setIsTyping(false);
+    try {
+      const history: ChatTurn[] = updatedMessages.map((m) => ({
+        role: m.sender === "user" ? "user" : "assistant",
+        text: m.text,
+      }));
+
+      const reply = await askJarvis(history);
+
       setMessages((prev) => [
         ...prev,
-        { id: createId(), sender: 'jarvis', text: getJarvisResponse(), time: timestamp() },
+        {
+          id: createId(),
+          sender: "jarvis",
+          text: reply,
+          time: timestamp(),
+        },
       ]);
-    }, 1000);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: createId(),
+          sender: "jarvis",
+          text: "Connection interrupted. Reactor uplink is being restored.",
+          time: timestamp(),
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   }
 
   return (
@@ -109,12 +141,18 @@ function ChatPanel() {
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`convo-line ${m.sender === 'user' ? 'convo-line--user' : 'convo-line--jarvis'}`}
+            className={`convo-line ${
+              m.sender === "user" ? "convo-line--user" : "convo-line--jarvis"
+            }`}
           >
             <div className="convo-line__meta">
-              <span className="convo-line__tag">{m.sender === 'user' ? 'YOU' : 'JARVIS'}</span>
+              <span className="convo-line__tag">
+                {m.sender === "user" ? "YOU" : "JARVIS"}
+              </span>
+
               <span className="convo-line__time">{m.time}</span>
             </div>
+
             <span className="convo-line__text">{m.text}</span>
           </div>
         ))}
@@ -124,7 +162,8 @@ function ChatPanel() {
             <div className="convo-line__meta">
               <span className="convo-line__tag">JARVIS</span>
             </div>
-            <span className="chat-typing" aria-label="Jarvis is typing">
+
+            <span className="chat-typing">
               <span className="chat-typing__dot" />
               <span className="chat-typing__dot" />
               <span className="chat-typing__dot" />
@@ -136,14 +175,17 @@ function ChatPanel() {
       <form className="chat-input-row" onSubmit={handleSubmit}>
         <input
           className="chat-input"
-          type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Message Jarvis..."
           maxLength={500}
-          aria-label="Message Jarvis"
         />
-        <button className="chat-send-btn" type="submit" aria-label="Send message" disabled={!draft.trim()}>
+
+        <button
+          className="chat-send-btn"
+          type="submit"
+          disabled={!draft.trim() || isTyping}
+        >
           <span className="chat-send-btn__glyph" />
         </button>
       </form>
@@ -155,5 +197,3 @@ function ChatPanel() {
     </aside>
   );
 }
-
-export default ChatPanel;

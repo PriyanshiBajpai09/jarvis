@@ -1,37 +1,39 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import js from "@eslint/js";
-import tseslint from "typescript-eslint";
 import globals from "globals";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
+import tseslint from "typescript-eslint";
 
-export default [
-  // Ignore folders that are not part of the current Expo app
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default tseslint.config(
+  { ignores: ["dist"] },
   {
-    ignores: [
-      "mobile_old/**",
-      "src/**",
-      "node_modules/**",
-      "dist/**",
+    files: ["**/*.{ts,tsx}"],
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommended,
+      reactHooks.configs["recommended-latest"],
+      reactRefresh.configs.vite,
     ],
-  },
-
-  js.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
-
-  {
     languageOptions: {
+      ecmaVersion: 2023,
+      globals: globals.browser,
       parserOptions: {
         project: "./tsconfig.json",
-        tsconfigRootDir: import.meta.dirname,
+        tsconfigRootDir: __dirname,
       },
-      globals: globals.browser,
     },
-
     rules: {
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         {
           argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
         },
       ],
     },
-  },
-];
+  }
+);

@@ -2108,3 +2108,171 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ===========================================================
+   JARVIS Identity Authorization
+   =========================================================== */
+
+.identity-overlay{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at center,
+      rgba(0,240,255,.12),
+      rgba(0,15,28,.92) 45%,
+      #010308 100%);
+  animation:identityFade .8s ease forwards;
+}
+
+.identity-overlay::before{
+  content:"";
+  position:absolute;
+  inset:-20%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 120px,
+      rgba(0,240,255,.03) 121px 122px
+    );
+  animation:gridDrift 14s linear infinite;
+}
+
+.identity-overlay::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle,
+      transparent 35%,
+      rgba(0,0,0,.42) 100%);
+}
+
+.identity-card{
+  position:relative;
+  width:min(520px,88vw);
+  padding:48px;
+  border-radius:26px;
+  overflow:hidden;
+  backdrop-filter:blur(22px);
+  background:rgba(4,16,28,.55);
+  border:1px solid rgba(0,240,255,.16);
+  box-shadow:
+    inset 0 0 35px rgba(0,240,255,.06),
+    0 0 80px rgba(0,240,255,.10);
+  animation:cardRise .9s cubic-bezier(.22,.8,.22,1);
+}
+
+.identity-scanline{
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(
+      transparent,
+      rgba(0,240,255,.14),
+      transparent
+    );
+  animation:scanSweep 3s linear infinite;
+}
+
+.identity-label{
+  text-align:center;
+  color:#67F3FF;
+  font-size:.72rem;
+  letter-spacing:.45em;
+  text-transform:uppercase;
+}
+
+.identity-title{
+  margin:18px 0 8px;
+  text-align:center;
+  color:white;
+  font-size:3.4rem;
+  font-weight:200;
+  letter-spacing:.08em;
+}
+
+.identity-subtitle{
+  text-align:center;
+  color:#9ABBC7;
+  line-height:1.6;
+  margin-bottom:28px;
+}
+
+.identity-input{
+  width:100%;
+  padding:16px 20px;
+  border-radius:14px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(0,240,255,.24);
+  color:white;
+  font-size:1rem;
+  outline:none;
+  transition:.25s;
+}
+
+.identity-input:focus{
+  border-color:#59EEFF;
+  box-shadow:0 0 24px rgba(0,240,255,.18);
+}
+
+.identity-button{
+  width:100%;
+  margin-top:22px;
+  padding:15px;
+  border-radius:999px;
+  border:1px solid rgba(0,240,255,.35);
+  background:linear-gradient(
+    90deg,
+    rgba(0,240,255,.06),
+    rgba(0,240,255,.12)
+  );
+  color:#7CF3FF;
+  cursor:pointer;
+  letter-spacing:.28em;
+  text-transform:uppercase;
+  transition:.3s;
+}
+
+.identity-button:hover{
+  transform:translateY(-1px);
+  box-shadow:0 0 28px rgba(0,240,255,.16);
+}
+
+.identity-footer{
+  margin-top:20px;
+  text-align:center;
+  color:#5EAEC2;
+  font-size:.72rem;
+  letter-spacing:.18em;
+}
+
+@keyframes identityFade{
+  from{opacity:0;}
+  to{opacity:1;}
+}
+
+@keyframes cardRise{
+  from{
+    opacity:0;
+    transform:translateY(36px) scale(.96);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0) scale(1);
+  }
+}
+
+@keyframes scanSweep{
+  from{transform:translateY(-120%);}
+  to{transform:translateY(120%);}
+}
+
+@keyframes gridDrift{
+  from{transform:translateY(0);}
+  to{transform:translateY(60px);}
+}
